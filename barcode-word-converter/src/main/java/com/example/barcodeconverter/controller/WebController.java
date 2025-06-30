@@ -29,4 +29,9 @@ public class WebController {
         }
         return "index"; // This will look for src/main/resources/templates/index.html
     }
+
+    @GetMapping("/login")
+    public String loginPage() {
+        return "login"; // Serves the custom login page
+    }
 }

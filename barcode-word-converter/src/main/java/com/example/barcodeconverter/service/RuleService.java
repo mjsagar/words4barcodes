@@ -260,69 +260,97 @@ public class RuleService {
             throw new IllegalArgumentException("RuleSet '" + ruleSetToSave.getName() + "' is invalid and cannot be saved: " + e.getMessage(), e);
         }
 
-        // Load existing rules from src/main/resources/rules.json to update the list
-        // This is complex because ClassPathResource reads from classpath, not source files directly for writing.
-        // We need a file system path to write.
-        Path rulesFilePath = Paths.get("src", "main", "resources", RULES_FILE_NAME);
-        List<RuleSet> currentRuleSetsList = new ArrayList<>();
+        // Load existing rules
+        List<RuleSet> currentRuleSetsList = loadRuleSetsFromFile();
 
-        try {
-            if (Files.exists(rulesFilePath)) {
-                // Read the existing file directly from the file system
-                byte[] jsonData = Files.readAllBytes(rulesFilePath);
-                // TypeReference for List<RuleSet> might fail if RuleSet or BarcodeSegmentRule are not proper beans for Jackson
-                // For reading, Jackson needs to instantiate. RuleSet(name, rules) needs @JsonCreator or it expects a no-arg constructor.
-                // We will deserialize into a list of maps first, then convert, similar to loadRuleSets.
-                // Or, ensure RuleSet and BarcodeSegmentRule are Jackson-friendly for direct deserialization.
-                // Assuming RuleSet and BarcodeSegmentRule are now Jackson-friendly enough due to getters/setters and no-arg constructor for BarcodeSegmentRule.
-                // RuleSet needs a way for Jackson to construct it. If it has a no-arg constructor and setters for name and rules, that works.
-                // Or, @JsonCreator on the existing constructor. Let's try direct deserialization.
-                // If this fails, we'd need to adjust RuleSet/BarcodeSegmentRule or use the Map approach.
-                 List<Map<String, Object>> rawRuleSetList = objectMapper.readValue(jsonData, new TypeReference<List<Map<String, Object>>>() {});
-                 for (Map<String, Object> rawRuleSet : rawRuleSetList) {
-                    String name = (String) rawRuleSet.get("name");
-                    @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> rawRules = (List<Map<String, Object>>) rawRuleSet.get("rules");
-                     if (name != null && rawRules != null) {
-                        List<BarcodeSegmentRule> rules = new ArrayList<>();
-                        for (Map<String, Object> rawRule : rawRules) {
-                            rules.add(objectMapper.convertValue(rawRule, BarcodeSegmentRule.class));
-                        }
-                        // Add existing, valid rulesets. We don't re-validate them here, assuming they were valid when saved.
-                        currentRuleSetsList.add(new RuleSet(name, rules));
-                    }
-                 }
-            }
-        } catch (IOException e) {
-            System.err.println("Could not read existing rules file at '" + rulesFilePath + "' to update. Will create a new file or overwrite. Error: " + e.getMessage());
-            // Proceed with an empty list, effectively overwriting or creating new.
-            currentRuleSetsList.clear();
-        }
-
-
-        // Remove old version of the ruleSetToSave if it exists, then add the new/updated one
+        // Remove old version if it exists, then add new/updated one
         final String nameToSave = ruleSetToSave.getName();
         currentRuleSetsList.removeIf(rs -> nameToSave.equals(rs.getName()));
         currentRuleSetsList.add(ruleSetToSave); // Add the (validated) version from the argument
 
-        // Ensure parent directory exists
+        // Persist the updated list
+        persistRuleSetsToFile(currentRuleSetsList);
+
+        // After saving, reload the rules in memory to reflect the changes immediately
+        loadRuleSets(); // This reloads from the file just written
+    }
+
+    public synchronized void deleteRuleSet(String nameToDelete) throws IOException, IllegalArgumentException {
+        if (nameToDelete == null || nameToDelete.trim().isEmpty()) {
+            throw new IllegalArgumentException("RuleSet name to delete cannot be null or empty.");
+        }
+
+        List<RuleSet> currentRuleSetsList = loadRuleSetsFromFile();
+        boolean removed = currentRuleSetsList.removeIf(rs -> nameToDelete.equals(rs.getName()));
+
+        if (!removed) {
+            // Optionally, throw an exception or return a status indicating the ruleset was not found
+            System.out.println("RuleSet with name '" + nameToDelete + "' not found for deletion.");
+            // Or throw new IllegalArgumentException("RuleSet with name '" + nameToDelete + "' not found.");
+            return; // No changes to persist
+        }
+
+        persistRuleSetsToFile(currentRuleSetsList);
+        loadRuleSets(); // Reload in-memory map
+        System.out.println("Successfully deleted RuleSet '" + nameToDelete + "' and updated rules.json.");
+    }
+
+    private List<RuleSet> loadRuleSetsFromFile() throws IOException {
+        Path rulesFilePath = Paths.get("src", "main", "resources", RULES_FILE_NAME);
+        List<RuleSet> ruleSetsList = new ArrayList<>();
+
+        if (Files.exists(rulesFilePath)) {
+            try {
+                byte[] jsonData = Files.readAllBytes(rulesFilePath);
+                List<Map<String, Object>> rawRuleSetList = objectMapper.readValue(jsonData, new TypeReference<List<Map<String, Object>>>() {});
+                for (Map<String, Object> rawRuleSet : rawRuleSetList) {
+                    String name = (String) rawRuleSet.get("name");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> rawRules = (List<Map<String, Object>>) rawRuleSet.get("rules");
+                    if (name != null && rawRules != null) {
+                        List<BarcodeSegmentRule> rules = new ArrayList<>();
+                        for (Map<String, Object> rawRule : rawRules) {
+                            try {
+                                rules.add(objectMapper.convertValue(rawRule, BarcodeSegmentRule.class));
+                            } catch (Exception e) {
+                                System.err.println("Skipping invalid rule data during file load for RuleSet '" + name + "': " + rawRule + ". Error: " + e.getMessage());
+                            }
+                        }
+                        if (!rules.isEmpty()) { // Only add if there are valid rules
+                           try {
+                                RuleSet rs = new RuleSet(name, rules);
+                                rs.validateRules(); // Validate before adding to list from file
+                                ruleSetsList.add(rs);
+                           } catch (IllegalArgumentException | IllegalStateException e) {
+                               System.err.println("Skipping invalid RuleSet '" + name + "' from file during load: " + e.getMessage());
+                           }
+                        } else if (rawRules.isEmpty()){
+                             // Handle case where a ruleset in JSON has an empty rules list
+                            System.err.println("RuleSet '" + name + "' in file has no rules. Skipping.");
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Could not read existing rules file at '" + rulesFilePath + "' for modification. Error: " + e.getMessage());
+                throw e; // Re-throw as this is a critical part of save/delete
+            }
+        }
+        return ruleSetsList;
+    }
+
+    private void persistRuleSetsToFile(List<RuleSet> ruleSetsToPersist) throws IOException {
+        Path rulesFilePath = Paths.get("src", "main", "resources", RULES_FILE_NAME);
         Path parentDir = rulesFilePath.getParent();
         if (parentDir != null && !Files.exists(parentDir)) {
             Files.createDirectories(parentDir);
         }
-
-        // Write the updated list back to the file in src/main/resources
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(rulesFilePath.toFile(), currentRuleSetsList);
-            System.out.println("Successfully saved rules to '" + rulesFilePath.toAbsolutePath() + "'.");
-            System.out.println("Please rebuild/refresh your project for changes to be reflected in the classpath.");
-
-            // After saving, reload the rules in memory to reflect the changes immediately
-            loadRuleSets();
-
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(rulesFilePath.toFile(), ruleSetsToPersist);
+            System.out.println("Successfully persisted rules to '" + rulesFilePath.toAbsolutePath() + "'.");
+            System.out.println("Please rebuild/refresh your project for changes to be reflected in the classpath if running in certain IDEs.");
         } catch (IOException e) {
-            System.err.println("Failed to save rules to '" + RULES_FILE_NAME + "': " + e.getMessage());
-            throw e; // Re-throw to indicate failure
+            System.err.println("Failed to persist rules to '" + RULES_FILE_NAME + "': " + e.getMessage());
+            throw e;
         }
     }
 }
