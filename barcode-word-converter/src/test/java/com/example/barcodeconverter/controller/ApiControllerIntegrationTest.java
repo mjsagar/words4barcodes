@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.doReturn;
+import static org.junit.jupiter.api.Assertions.*; // Added this line
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -134,21 +135,44 @@ public class ApiControllerIntegrationTest {
 
     @Test
     void convert_missingRuleSetName_usesDefaultAndSucceeds() throws Exception {
-        // This test relies on the default "default-20char" ruleset created by RuleService
-        // if rules.json is missing or if it's the first one loaded.
-        // Let's ensure the RuleService spy returns our DEFAULT_RULE_SET_NAME as the first one.
-        doReturn(Arrays.asList(DEFAULT_RULE_SET_NAME, "another-rule-set")).when(ruleService).getAllRuleSetNames();
+        // This test relies on the default "default-20char" ruleset.
+        // Its structure is: 4N-1S-4N-1S-4N-1S-4N-1S, total length 20. Static values are T, E, S, T.
+        // Words from words.txt (0-indexed):
+        // that (0), this (1), with (2), from (3), your (4), have (5), more (6), will (7)
+        // acid (8), also (9), anil (10), aqua (11), area (12), army (13), atom (14), away (15)
+
+        // Let's use barcode: "0000T0003E0006S0011T"
+        // Indices: 0, 3, 6, 11
+        // Expected words: "that", "from", "more", "aqua"
+
+        // Ensure RuleService.getRuleSetByName(null) returns the "default-20char" ruleset.
+        // The RuleService's init method should load or create "default-20char".
+        // We don't need to mock getAllRuleSetNames specifically for this, as ApiController
+        // calls getRuleSetByName(null) which has its own default logic.
+
+        RuleSet defaultRuleSetFromService = ruleService.getRuleSetByName(null); // This should be "default-20char"
+        assertNotNull(defaultRuleSetFromService, "RuleService did not provide a default RuleSet.");
+        assertEquals("default-20char", defaultRuleSetFromService.getName(), "Default RuleSet name mismatch.");
+        assertEquals(20, defaultRuleSetFromService.getTotalBarcodeLength(), "Default RuleSet total length mismatch.");
+
 
         ConversionRequest request = new ConversionRequest();
-        request.setBarcode("0000IT0003AAA0006Z0011");
-        // No ruleSetName set in request
+        // Barcode "0000T0003E0006S0011T" -> words: "that", "from", "more", "search" (index 11 is 'search')
+        request.setBarcode("0000T0003E0006S0011T");
+        // No ruleSetName set in request, so ApiController should ask RuleService for default.
+
+        List<String> expectedWords = Arrays.asList("that", "from", "more", "search");
 
         mockMvc.perform(post("/api/convert")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("success")))
-                .andExpect(jsonPath("$.words[0]", is("that")));
+                .andExpect(jsonPath("$.words", hasSize(4)))
+                .andExpect(jsonPath("$.words[0]", is(expectedWords.get(0))))
+                .andExpect(jsonPath("$.words[1]", is(expectedWords.get(1))))
+                .andExpect(jsonPath("$.words[2]", is(expectedWords.get(2))))
+                .andExpect(jsonPath("$.words[3]", is(expectedWords.get(3))));
     }
 
 

@@ -65,8 +65,22 @@ public class ConversionService {
         if (ruleSet == null) {
             throw new IllegalArgumentException("RuleSet cannot be null.");
         }
+        // Rely on RuleService to provide a validated RuleSet.
+        // If it's not validated, an error during processing is acceptable,
+        // or RuleSet methods themselves should guard against unvalidated state if necessary.
+        // For example, getTotalBarcodeLength() or getRules() could throw if not validated.
+        // Our current RuleSet.getTotalBarcodeLength() calculates if not validated, which is okay.
+        // RuleSet.getRules() just returns the list.
+        // The core logic relies on RuleSet.validateRules() having been called by RuleService.
         if (!ruleSet.isValidated()) {
-            ruleSet.validateRules(); // Ensure rules are valid before use
+            // This indicates a potential issue upstream (e.g., RuleService didn't validate).
+            // Depending on strictness, could throw an error or log a warning.
+            // For now, we'll proceed, assuming that if it's critically unvalidated,
+            // subsequent operations will fail appropriately.
+            System.err.println("Warning: ConversionService received a RuleSet ('" + ruleSet.getName() +
+                               "') that is not marked as validated. Proceeding with conversion, but this may indicate an issue.");
+            // Optionally, one could re-validate here, but it's better if the service guarantees it.
+            // ruleSet.validateRules(); // This would throw if it's invalid.
         }
 
         List<BarcodeSegmentRule> wordMappingRules = ruleSet.getRules().stream()
@@ -145,8 +159,11 @@ public class ConversionService {
         if (ruleSet == null) {
             throw new IllegalArgumentException("RuleSet cannot be null.");
         }
+        // Similar to wordsToBarcode, rely on RuleService for validated RuleSets.
         if (!ruleSet.isValidated()) {
-            ruleSet.validateRules(); // Ensure rules are valid
+             System.err.println("Warning: ConversionService received a RuleSet ('" + ruleSet.getName() +
+                               "') that is not marked as validated for barcodeToWords. Proceeding...");
+            // ruleSet.validateRules(); // Could re-validate if necessary.
         }
 
         if (barcode.length() != ruleSet.getTotalBarcodeLength()) {

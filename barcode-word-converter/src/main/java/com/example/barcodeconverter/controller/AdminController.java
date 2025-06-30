@@ -126,12 +126,37 @@ public class AdminController {
             }
         }
 
-        RuleSet finalRuleSet = new RuleSet();
-        finalRuleSet.setName(ruleSetData.getName());
-        finalRuleSet.setRules(newRules); // This will sort and mark for re-validation
+        // Validate name before constructing RuleSet
+        String ruleSetName = ruleSetData.getName();
+        if (ruleSetName == null || ruleSetName.trim().isEmpty()) {
+            redirectAttributes.addFlashAttribute("errorMessage", "RuleSet name cannot be empty.");
+            // Redirecting to edit with the (invalid) name might be problematic if it's truly empty.
+            // Consider redirecting to the general rules list or a new rule form.
+            // For now, let's try to go back to an edit page, assuming some name might have been partially entered or to show error context.
+            // If ruleSetName is completely empty, an empty param is fine for 'new' form.
+            return "redirect:/admin/rules/edit" + (ruleSetName != null ? "?name=" + java.net.URLEncoder.encode(ruleSetName, StandardCharsets.UTF_8) : "");
+        }
+
+        RuleSet finalRuleSet;
+        try {
+            // The RuleSet constructor itself performs initial validation (name, non-empty rules list)
+            // and sorts rules.
+            if (newRules.isEmpty()) {
+                 // RuleSet constructor throws if rules list is empty. Provide a more user-friendly message here.
+                 redirectAttributes.addFlashAttribute("errorMessage", "A RuleSet must contain at least one segment rule.");
+                 return "redirect:/admin/rules/edit?name=" + java.net.URLEncoder.encode(ruleSetName, StandardCharsets.UTF_8);
+            }
+            finalRuleSet = new RuleSet(ruleSetName, newRules);
+            // Full validation is called next.
+        } catch (IllegalArgumentException e) {
+            // Catch errors from RuleSet constructor (e.g. empty name, though checked above, or empty rules)
+            redirectAttributes.addFlashAttribute("errorMessage", "Error creating RuleSet: " + e.getMessage());
+            return "redirect:/admin/rules/edit?name=" + java.net.URLEncoder.encode(ruleSetName, StandardCharsets.UTF_8);
+        }
+
 
         try {
-            finalRuleSet.validateRules(); // Explicitly validate before saving
+            finalRuleSet.validateRules(); // Explicitly validate all rules logic within the RuleSet
             ruleService.saveRuleSet(finalRuleSet);
             redirectAttributes.addFlashAttribute("successMessage", "RuleSet '" + finalRuleSet.getName() + "' saved successfully.");
         } catch (IOException e) {

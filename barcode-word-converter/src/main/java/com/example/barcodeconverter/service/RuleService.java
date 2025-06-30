@@ -3,15 +3,14 @@ package com.example.barcodeconverter.service;
 import com.example.barcodeconverter.model.BarcodeSegmentRule;
 import com.example.barcodeconverter.model.RuleSet;
 import com.example.barcodeconverter.model.SegmentType;
-import org.springframework.stereotype.Service;
-
+// Removed duplicate org.springframework.stereotype.Service import
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Value;
+// import org.springframework.beans.factory.annotation.Value; // Not used
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Service; // Keep this one
 import org.springframework.util.FileCopyUtils;
 
 import java.io.IOException;
@@ -24,7 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+// import java.util.HashMap; // Not directly used by RuleService itself, map is ConcurrentHashMap
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,16 +37,16 @@ public class RuleService {
 
     // In a real scenario, you might make this path configurable
     // For ClassPathResource, it's relative to 'classes' root or classpath root.
-    private final String rulesJsonPath = RULES_FILE_NAME;
-
+    private final String rulesJsonPath = RULES_FILE_NAME; // This is correct for ClassPathResource
 
     @PostConstruct
     public void init() {
         loadRuleSets();
         if (ruleSets.isEmpty()) {
-            System.out.println("No rulesets loaded from " + rulesJsonPath + ". Creating a default one.");
-            createDefaultRuleSetFile();
-            loadRuleSets(); // Try loading again after creating the default
+            System.out.println("No rulesets loaded from '" + rulesJsonPath + "'. Creating a default one.");
+            // Attempt to create in src/main/resources, which might only work in dev environments
+            createDefaultRuleSetFileIfNotExistsInResources();
+            loadRuleSets(); // Try loading again
         }
     }
 
@@ -55,148 +54,273 @@ public class RuleService {
         try {
             Resource resource = new ClassPathResource(rulesJsonPath);
             if (!resource.exists()) {
-                System.out.println(rulesJsonPath + " not found on classpath. No rulesets loaded.");
+                System.out.println("'" + rulesJsonPath + "' not found on classpath. No rulesets will be loaded.");
                 return;
             }
 
-            try (InputStream inputStream = resource.getInputStream();
-                 Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8)) {
-                String jsonContent = FileCopyUtils.copyToString(reader);
+            // Define a more specific type for deserialization if RuleSet needs special handling for its List<BarcodeSegmentRule>
+            // However, Jackson should be able to handle List<BarcodeSegmentRule> if BarcodeSegmentRule is a valid bean.
+            // The key is that the JSON structure must match what Jackson expects for RuleSet and BarcodeSegmentRule.
+            // Specifically, BarcodeSegmentRule needs getters and setters or a constructor Jackson can use.
+            // Our BarcodeSegmentRule has getters/setters and a no-arg constructor, plus an all-args constructor.
+            // Jackson might need @JsonCreator for the all-args constructor if no-arg + setters is not preferred.
+            // For RuleSet, it has a constructor RuleSet(String name, List<BarcodeSegmentRule> rules).
+            // Jackson will need to know how to map JSON fields to these constructor arguments.
+            // This typically requires @JsonProperty annotations on constructor parameters or matching field names.
+            // Let's assume the JSON field names match "name" and "rules".
 
-                List<RuleSet> loadedList = objectMapper.readValue(jsonContent, new TypeReference<List<RuleSet>>() {});
-                ruleSets.clear(); // Clear existing before loading new ones
-                for (RuleSet rs : loadedList) {
+            List<Map<String, Object>> rawRuleSetList;
+            try (InputStream inputStream = resource.getInputStream()) {
+                 rawRuleSetList = objectMapper.readValue(inputStream, new TypeReference<List<Map<String, Object>>>() {});
+            }
+
+            ruleSets.clear(); // Clear existing before loading new ones
+
+            for (Map<String, Object> rawRuleSet : rawRuleSetList) {
+                String name = (String) rawRuleSet.get("name");
+                @SuppressWarnings("unchecked") // Jackson deserializes to List<Map<...>> for complex objects in list
+                List<Map<String, Object>> rawRules = (List<Map<String, Object>>) rawRuleSet.get("rules");
+
+                if (name == null || rawRules == null) {
+                    System.err.println("Skipping a ruleset due to missing name or rules field.");
+                    continue;
+                }
+
+                List<BarcodeSegmentRule> rules = new ArrayList<>();
+                for (Map<String, Object> rawRule : rawRules) {
                     try {
-                        // Ensure rules are sorted and DTOs are properly converted to domain objects if needed
-                        // For now, assuming BarcodeSegmentRule and SegmentType deserialize correctly.
-                        // The RuleSet constructor now sorts and validates.
-                        RuleSet validatedRuleSet = new RuleSet(rs.getName(), rs.getRules());
-                        ruleSets.put(validatedRuleSet.getName(), validatedRuleSet);
-                        System.out.println("Successfully loaded and validated RuleSet: " + validatedRuleSet.getName() + " with total length " + validatedRuleSet.getTotalBarcodeLength());
-                    } catch (IllegalStateException e) {
-                        System.err.println("Error validating RuleSet '" + rs.getName() + "': " + e.getMessage() + ". Skipping this ruleset.");
-                    } catch (Exception e) {
-                        System.err.println("Unexpected error processing RuleSet '" + rs.getName() + "': " + e.getMessage() + ". Skipping this ruleset.");
-                        e.printStackTrace();
+                        // Manually map or use objectMapper.convertValue for each rule
+                        BarcodeSegmentRule rule = objectMapper.convertValue(rawRule, BarcodeSegmentRule.class);
+                        rules.add(rule);
+                    } catch (IllegalArgumentException e) {
+                        System.err.println("Error converting raw rule to BarcodeSegmentRule for ruleset '" + name + "': " + e.getMessage() + ". Skipping this rule.");
                     }
                 }
-                System.out.println("Finished loading " + ruleSets.size() + " rulesets from " + rulesJsonPath);
+
+                if (rules.isEmpty() && !rawRules.isEmpty()) {
+                     System.err.println("All rules failed to load for ruleset '" + name + "'. Skipping this ruleset.");
+                     continue;
+                }
+                 if (rules.isEmpty() && rawRules.isEmpty()) { // if rules list was empty in JSON
+                    System.err.println("Ruleset '" + name + "' has no rules defined. Skipping this ruleset.");
+                    continue;
+                }
+
+
+                try {
+                    RuleSet ruleSet = new RuleSet(name, rules); // Constructor sorts and validates rules
+                    ruleSet.validateRules(); // This is now called inside the RuleSet constructor or can be called explicitly
+                    ruleSets.put(ruleSet.getName(), ruleSet);
+                    System.out.println("Successfully loaded and validated RuleSet: " + ruleSet.getName() +
+                                       " with " + ruleSet.getRules().size() + " rules and total length " +
+                                       ruleSet.getTotalBarcodeLength());
+                } catch (IllegalArgumentException | IllegalStateException e) {
+                    System.err.println("Error processing or validating RuleSet '" + name + "': " + e.getMessage() + ". Skipping this ruleset.");
+                } catch (Exception e) { // Catch any other unexpected errors during RuleSet creation
+                    System.err.println("Unexpected error creating RuleSet '" + name + "': " + e.getMessage() + ". Skipping this ruleset.");
+                    e.printStackTrace();
+                }
             }
-        } catch (IOException e) {
-            System.err.println("Failed to load rulesets from " + rulesJsonPath + ": " + e.getMessage());
-            // e.printStackTrace(); // Optionally print stack trace for debugging
-        }
-    }
-
-    private void createDefaultRuleSetFile() {
-        try {
-            // Path to src/main/resources for writing during development.
-            // This is tricky because files in src/main/resources are packaged into the JAR
-            // and are not typically writable at runtime in a deployed app.
-            // For initial setup, we can try to write it if running in an environment
-            // where src/main/resources is accessible as a file system path.
-            Path path = Paths.get("src", "main", "resources", RULES_FILE_NAME);
-
-            if (Files.exists(path)) {
-                System.out.println("Default rules file already exists at: " + path.toString());
-                return;
-            }
-
-            Files.createDirectories(path.getParent());
-
-            List<BarcodeSegmentRule> rulesFor20Char = new ArrayList<>();
-            rulesFor20Char.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // Word 1
-            rulesFor20Char.add(new BarcodeSegmentRule(1, 1, SegmentType.STATIC, "T", false));
-            rulesFor20Char.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // Word 2
-            rulesFor20Char.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "E", false));
-            rulesFor20Char.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // Word 3
-            rulesFor20Char.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "S", false));
-            rulesFor20Char.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // Word 4
-            rulesFor20Char.add(new BarcodeSegmentRule(7, 1, SegmentType.STATIC, "T", false));
-
-            RuleSet defaultRuleSet = new RuleSet("default-20char", rulesFor20Char);
-            // No need to validate here as it's validated on construction of RuleSet object.
-
-            List<RuleSet> defaultRuleSets = Collections.singletonList(defaultRuleSet);
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), defaultRuleSets);
-
-            System.out.println("Created default " + RULES_FILE_NAME + " at " + path.toString());
+            System.out.println("Finished loading " + ruleSets.size() + " rulesets from '" + rulesJsonPath + "'.");
 
         } catch (IOException e) {
-            System.err.println("Could not create default " + RULES_FILE_NAME + ": " + e.getMessage());
+            System.err.println("Failed to load rulesets from '" + rulesJsonPath + "': " + e.getMessage());
             // e.printStackTrace();
         }
     }
 
+    /**
+     * Creates a default rules.json file in src/main/resources if it doesn't exist.
+     * This is primarily for development convenience. In a production environment,
+     * the rules file should be provisioned as part of the deployment.
+     */
+    private void createDefaultRuleSetFileIfNotExistsInResources() {
+        try {
+            // Check if the file already exists in the classpath (e.g., inside JAR or target/classes)
+            Resource resource = new ClassPathResource(RULES_FILE_NAME);
+            if (resource.exists()) {
+                System.out.println("Default rules file '" + RULES_FILE_NAME + "' already exists in classpath. No action taken.");
+                return;
+            }
+
+            // If not in classpath, try to create it in src/main/resources
+            // This path is relative to the project root when running in an IDE or from Maven.
+            Path path = Paths.get("src", "main", "resources", RULES_FILE_NAME);
+
+            if (Files.exists(path)) {
+                System.out.println("Default rules file already exists at: " + path.toAbsolutePath());
+                return;
+            }
+
+            // Ensure parent directory exists
+            Path parentDir = path.getParent();
+            if (parentDir != null && !Files.exists(parentDir)) {
+                Files.createDirectories(parentDir);
+            }
+
+            List<BarcodeSegmentRule> rulesFor20Char = new ArrayList<>();
+            // Order must be sequential, starting from 0 or 1 based on RuleSet validation logic.
+            // RuleSet validation expects sequential order from the first rule's order.
+            // Let's make them 0-indexed for consistency with typical list/array indexing.
+            // The RuleSet validation will check for sequential order from the lowest order number.
+            // If RuleSet expects orders to start from 1, adjust here or in RuleSet validation.
+            // Current RuleSet.validateRules() implies it starts from whatever the first rule's order is.
+            // Let's use 0-indexed for the default. The RuleSet constructor sorts them first.
+            rulesFor20Char.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));  // Word 1
+            rulesFor20Char.add(new BarcodeSegmentRule(1, 1, SegmentType.STATIC, "T", false));
+            rulesFor20Char.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));  // Word 2
+            rulesFor20Char.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "E", false));
+            rulesFor20Char.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));  // Word 3
+            rulesFor20Char.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "S", false));
+            rulesFor20Char.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));  // Word 4
+            rulesFor20Char.add(new BarcodeSegmentRule(7, 1, SegmentType.STATIC, "T", false)); // Total length = 20
+
+            // Create a RuleSet object. The constructor will sort rules by order.
+            // Validation will occur when this RuleSet is loaded by loadRuleSets() if this file is used.
+            RuleSet defaultRuleSet;
+            try {
+                 defaultRuleSet = new RuleSet("default-20char", rulesFor20Char);
+                 defaultRuleSet.validateRules(); // Validate it here to be sure before writing
+            } catch (Exception e) {
+                System.err.println("Failed to create and validate default RuleSet object: " + e.getMessage());
+                return; // Don't write a broken default
+            }
+
+
+            List<RuleSet> defaultRuleSets = Collections.singletonList(defaultRuleSet);
+
+            // Serialize the default RuleSet list to JSON
+            // We need to ensure that BarcodeSegmentRule and RuleSet can be serialized correctly.
+            // Jackson typically serializes based on getters. If using fields, need @JsonProperty or field visibility.
+            // Our RuleSet(name, rules) constructor and BarcodeSegmentRule(...) constructor might not be used by default for deserialization
+            // unless annotated with @JsonCreator and @JsonProperty on parameters.
+            // However, for serialization, getters are usually enough.
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), defaultRuleSets);
+
+            System.out.println("Created default rules file '" + RULES_FILE_NAME + "' at: " + path.toAbsolutePath());
+            System.out.println("Please rebuild the project or ensure '" + RULES_FILE_NAME + "' is copied to your classpath (e.g., target/classes) for it to be loaded.");
+
+        } catch (IOException e) {
+            System.err.println("Could not create default rules file '" + RULES_FILE_NAME + "': " + e.getMessage());
+            // e.printStackTrace(); // For debugging
+        } catch (Exception e) { // Catch other exceptions like from RuleSet validation
+             System.err.println("An unexpected error occurred while trying to create default rules file '" + RULES_FILE_NAME + "': " + e.getMessage());
+             // e.printStackTrace();
+        }
+    }
 
     public RuleSet getRuleSetByName(String name) {
         if (name == null || name.trim().isEmpty()) {
             if (!ruleSets.isEmpty()) {
-                 System.out.println("RuleSetName is null/empty, attempting to use first available ruleset.");
-                 // Provide a consistent default if multiple are loaded, e.g., sorted by name
-                 return ruleSets.values().stream().min(java.util.Comparator.comparing(RuleSet::getName)).orElse(null);
+                System.out.println("RuleSetName is null/empty, attempting to use the first available ruleset (sorted by name).");
+                // Provide a consistent default: the one with the lexicographically smallest name
+                return ruleSets.values().stream()
+                               .min(java.util.Comparator.comparing(RuleSet::getName))
+                               .orElse(null); // Should not be null if ruleSets is not empty
             }
+            System.out.println("RuleSetName is null/empty and no rulesets are loaded.");
             return null;
         }
-        return ruleSets.get(name);
+        RuleSet ruleSet = ruleSets.get(name);
+        if (ruleSet == null) {
+            System.out.println("RuleSet with name '" + name + "' not found.");
+        }
+        return ruleSet;
     }
 
     public List<String> getAllRuleSetNames() {
         List<String> names = new ArrayList<>(ruleSets.keySet());
-        Collections.sort(names);
+        Collections.sort(names); // Ensure consistent order
         return names;
     }
 
-    // This method would be more complex in a real app, needing to write back to the rules.json
-    // It also needs to handle potential concurrent access if rules can be modified at runtime.
-    public synchronized void saveRuleSet(RuleSet ruleSetToSave) throws IOException {
-        if (ruleSetToSave == null || ruleSetToSave.getName() == null || ruleSetToSave.getName().trim().isEmpty()) {
-            throw new IllegalArgumentException("RuleSet and its name cannot be null or empty.");
+    /**
+     * Saves a RuleSet. This implementation attempts to write back to the src/main/resources/rules.json file.
+     * This is suitable for development environments. In production, configuration management
+     * or a database would be more appropriate for managing rulesets.
+     * Note: Changes to src/main/resources/rules.json might require a project rebuild to be reflected in the classpath.
+     * @param ruleSetToSave The RuleSet to save.
+     * @throws IOException If an error occurs during file writing.
+     * @throws IllegalArgumentException If the ruleSetToSave is invalid or null.
+     */
+    public synchronized void saveRuleSet(RuleSet ruleSetToSave) throws IOException, IllegalArgumentException {
+        if (ruleSetToSave == null) {
+            throw new IllegalArgumentException("RuleSet to save cannot be null.");
+        }
+        if (ruleSetToSave.getName() == null || ruleSetToSave.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("RuleSet name cannot be null or empty.");
         }
 
-        // Validate before saving
+        // Ensure the RuleSet is valid before attempting to save
         try {
-            ruleSetToSave.validateRules();
+            ruleSetToSave.validateRules(); // This will throw IllegalStateException if invalid
         } catch (IllegalStateException e) {
-            throw new IllegalArgumentException("RuleSet is invalid: " + e.getMessage(), e);
+            throw new IllegalArgumentException("RuleSet '" + ruleSetToSave.getName() + "' is invalid and cannot be saved: " + e.getMessage(), e);
         }
 
-        // Load existing rules
-        List<RuleSet> currentRuleSets = new ArrayList<>();
-        Resource resource = new ClassPathResource(rulesJsonPath);
-        if (resource.exists()) {
-             try (InputStream inputStream = resource.getInputStream();
-                 Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8)) {
-                String jsonContent = FileCopyUtils.copyToString(reader);
-                currentRuleSets = objectMapper.readValue(jsonContent, new TypeReference<List<RuleSet>>() {});
-            } catch (IOException e) {
-                // If we can't read, maybe we can't write either, or we start fresh
-                System.err.println("Could not read existing rules.json to update. Will attempt to overwrite. Error: " + e.getMessage());
-                currentRuleSets = new ArrayList<>(); // Start fresh if read fails but allow overwrite
-            }
-        }
+        // Load existing rules from src/main/resources/rules.json to update the list
+        // This is complex because ClassPathResource reads from classpath, not source files directly for writing.
+        // We need a file system path to write.
+        Path rulesFilePath = Paths.get("src", "main", "resources", RULES_FILE_NAME);
+        List<RuleSet> currentRuleSetsList = new ArrayList<>();
 
-        // Remove old version if it exists, then add new/updated one
-        currentRuleSets.removeIf(rs -> rs.getName().equals(ruleSetToSave.getName()));
-        currentRuleSets.add(ruleSetToSave);
-
-        // This writes to the target/classes directory if running from Maven, or project root.
-        // For a deployed app, this needs a persistent, writable location.
-        // For development, writing to src/main/resources is okay but won't reflect in classpath until rebuild.
         try {
-            Path path = Paths.get("src", "main", "resources", RULES_FILE_NAME);
-             if (!Files.exists(path.getParent())) {
-                Files.createDirectories(path.getParent());
+            if (Files.exists(rulesFilePath)) {
+                // Read the existing file directly from the file system
+                byte[] jsonData = Files.readAllBytes(rulesFilePath);
+                // TypeReference for List<RuleSet> might fail if RuleSet or BarcodeSegmentRule are not proper beans for Jackson
+                // For reading, Jackson needs to instantiate. RuleSet(name, rules) needs @JsonCreator or it expects a no-arg constructor.
+                // We will deserialize into a list of maps first, then convert, similar to loadRuleSets.
+                // Or, ensure RuleSet and BarcodeSegmentRule are Jackson-friendly for direct deserialization.
+                // Assuming RuleSet and BarcodeSegmentRule are now Jackson-friendly enough due to getters/setters and no-arg constructor for BarcodeSegmentRule.
+                // RuleSet needs a way for Jackson to construct it. If it has a no-arg constructor and setters for name and rules, that works.
+                // Or, @JsonCreator on the existing constructor. Let's try direct deserialization.
+                // If this fails, we'd need to adjust RuleSet/BarcodeSegmentRule or use the Map approach.
+                 List<Map<String, Object>> rawRuleSetList = objectMapper.readValue(jsonData, new TypeReference<List<Map<String, Object>>>() {});
+                 for (Map<String, Object> rawRuleSet : rawRuleSetList) {
+                    String name = (String) rawRuleSet.get("name");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> rawRules = (List<Map<String, Object>>) rawRuleSet.get("rules");
+                     if (name != null && rawRules != null) {
+                        List<BarcodeSegmentRule> rules = new ArrayList<>();
+                        for (Map<String, Object> rawRule : rawRules) {
+                            rules.add(objectMapper.convertValue(rawRule, BarcodeSegmentRule.class));
+                        }
+                        // Add existing, valid rulesets. We don't re-validate them here, assuming they were valid when saved.
+                        currentRuleSetsList.add(new RuleSet(name, rules));
+                    }
+                 }
             }
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), currentRuleSets);
-            System.out.println("Successfully saved rules to " + path.toString());
+        } catch (IOException e) {
+            System.err.println("Could not read existing rules file at '" + rulesFilePath + "' to update. Will create a new file or overwrite. Error: " + e.getMessage());
+            // Proceed with an empty list, effectively overwriting or creating new.
+            currentRuleSetsList.clear();
+        }
 
-            // Reload rules in memory
+
+        // Remove old version of the ruleSetToSave if it exists, then add the new/updated one
+        final String nameToSave = ruleSetToSave.getName();
+        currentRuleSetsList.removeIf(rs -> nameToSave.equals(rs.getName()));
+        currentRuleSetsList.add(ruleSetToSave); // Add the (validated) version from the argument
+
+        // Ensure parent directory exists
+        Path parentDir = rulesFilePath.getParent();
+        if (parentDir != null && !Files.exists(parentDir)) {
+            Files.createDirectories(parentDir);
+        }
+
+        // Write the updated list back to the file in src/main/resources
+        try {
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(rulesFilePath.toFile(), currentRuleSetsList);
+            System.out.println("Successfully saved rules to '" + rulesFilePath.toAbsolutePath() + "'.");
+            System.out.println("Please rebuild/refresh your project for changes to be reflected in the classpath.");
+
+            // After saving, reload the rules in memory to reflect the changes immediately
             loadRuleSets();
 
         } catch (IOException e) {
-            System.err.println("Failed to save rules to " + RULES_FILE_NAME + ": " + e.getMessage());
-            throw e;
+            System.err.println("Failed to save rules to '" + RULES_FILE_NAME + "': " + e.getMessage());
+            throw e; // Re-throw to indicate failure
         }
     }
 }

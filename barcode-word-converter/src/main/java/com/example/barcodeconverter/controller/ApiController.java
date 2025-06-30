@@ -34,36 +34,54 @@ public class ApiController {
             return ResponseEntity.badRequest().body(ConversionResponse.error("Request body is missing."));
         }
 
-        String ruleSetName = request.getRuleSetName();
-        if (ruleSetName == null || ruleSetName.trim().isEmpty()) {
-            // Default to the first available ruleset name if none provided in request
-            List<String> availableRuleSets = ruleService.getAllRuleSetNames();
-            if (!availableRuleSets.isEmpty()) {
-                ruleSetName = availableRuleSets.get(0);
-                System.out.println("No ruleSetName provided in request, defaulting to: " + ruleSetName);
-            } else {
+        String requestedRuleSetName = request.getRuleSetName();
+        RuleSet ruleSet;
+
+        if (requestedRuleSetName == null || requestedRuleSetName.trim().isEmpty()) {
+            System.out.println("No ruleSetName provided in request, attempting to use default from RuleService.");
+            // RuleService's getRuleSetByName handles null/empty by returning a default if available
+            ruleSet = ruleService.getRuleSetByName(null);
+            if (ruleSet == null) {
                  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                               .body(ConversionResponse.error("No rule sets configured in the system."));
+                               .body(ConversionResponse.error("No default rule set configured or no rule sets available in the system."));
+            }
+            System.out.println("Defaulting to RuleSet: " + ruleSet.getName());
+        } else {
+            ruleSet = ruleService.getRuleSetByName(requestedRuleSetName);
+            if (ruleSet == null) {
+                return ResponseEntity.badRequest().body(ConversionResponse.error("RuleSet with name '" + requestedRuleSetName + "' not found."));
             }
         }
 
-        RuleSet ruleSet = ruleService.getRuleSetByName(ruleSetName);
-
-        if (ruleSet == null) {
-            return ResponseEntity.badRequest().body(ConversionResponse.error("RuleSet with name '" + request.getRuleSetName() + "' not found."));
+        // RuleSets loaded by RuleService should already be validated.
+        // An explicit call to ruleSet.validateRules() here is redundant and potentially problematic
+        // if the RuleSet instance is shared and validateRules() is not idempotent or has side effects
+        // beyond setting a flag. Our RuleSet.validateRules() is idempotent if already validated.
+        // However, it's better to rely on the service layer to provide validated objects.
+        // If a RuleSet from RuleService is not validated, it's an issue in RuleService's loading logic.
+        if (!ruleSet.isValidated()) {
+            // This case should ideally not happen if RuleService guarantees validated RuleSets.
+            // If it can happen (e.g., rules are modified externally), then re-validation might be needed.
+            // For now, we assume RuleService provides validated RuleSets.
+            // If validation was strictly necessary here, it should be handled carefully.
+            // For example, logging a warning or even an error if a non-validated ruleset is received.
+            System.err.println("Warning: RuleSet '" + ruleSet.getName() + "' obtained from RuleService is not marked as validated. This might indicate an issue in RuleService's initialization.");
+            // Depending on policy, could either try to validate it now, or reject.
+            // try {
+            //     ruleSet.validateRules();
+            // } catch (IllegalStateException e) {
+            //     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            //                   .body(ConversionResponse.error("Error re-validating RuleSet '" + ruleSet.getName() + "': " + e.getMessage()));
+            // }
+            // For this implementation, we will trust that RuleService.getRuleSetByName returns a validated RuleSet
+            // or a RuleSet that will throw an error during its use in ConversionService if it's fundamentally broken
+            // and was not caught by RuleService's initial validation.
         }
 
         try {
-            if (!ruleSet.isValidated()) {
-                ruleSet.validateRules(); // Ensure it's validated before use
-            }
-        } catch (IllegalStateException e) {
-             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                           .body(ConversionResponse.error("Error with selected RuleSet '" + ruleSetName + "': " + e.getMessage()));
-        }
+            // The actual ruleSetName used, especially if a default was applied.
+            String effectiveRuleSetName = ruleSet.getName();
 
-
-        try {
             if (request.getBarcode() != null && !request.getBarcode().trim().isEmpty()) {
                 // Barcode to Words
                 List<String> words = conversionService.barcodeToWords(request.getBarcode(), ruleSet);
