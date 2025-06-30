@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Rule Sets Administration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        h1, h2 { color: #333; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        .action-links a { margin-right: 10px; text-decoration: none; color: #007bff; }
+        .action-links a:hover { text-decoration: underline; }
+        .button { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin-top:20px; }
+        .button:hover { background-color: #218838; }
+        .message { padding: 10px; margin-bottom: 15px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .home-link { display: block; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rule Sets Administration</h1>
+
+        <div th:if="${successMessage}" class="message success" th:text="${successMessage}"></div>
+        <div th:if="${errorMessage}" class="message error" th:text="${errorMessage}"></div>
+
+        <div style="text-align: right; margin-bottom: 20px;">
+            <form th:action="@{/logout}" method="post" style="display: inline;">
+                <input type="submit" value="Logout" class="button" style="background-color: #dc3545;"/>
+            </form>
+        </div>
+
+        <div th:if="${successMessage}" class="message success" th:text="${successMessage}"></div>
+        <div th:if="${errorMessage}" class="message error" th:text="${errorMessage}"></div>
+
+        <a th:href="@{/admin/rules/edit}" class="button">Create New Rule Set</a>
+
+        <h2>Existing Rule Sets</h2>
+        <div th:if="${#lists.isEmpty(ruleSetNames)}">
+            <p>No rule sets found. You can create one using the button above.</p>
+        </div>
+        <table th:unless="${#lists.isEmpty(ruleSetNames)}">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <!--<th>Total Length</th>--> <!-- Removed for simplicity, can be re-added if RuleSet objects are passed -->
+                    <!--<th>Number of Segments</th>-->
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="ruleSetName : ${ruleSetNames}">
+                    <td th:text="${ruleSetName}">Sample RuleSet</td>
+                    <!-- <td th:text="${rs.getTotalBarcodeLength()}">16</td> -->
+                    <!-- <td th:text="${rs.rules.size()}">5</td> -->
+                    <td class="action-links">
+                        <a th:href="@{/admin/rules/edit(name=${ruleSetName})}">Edit</a>
+                        <form th:action="@{/admin/rules/delete}" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this RuleSet?');">
+                            <input type="hidden" name="name" th:value="${ruleSetName}" />
+                            <button type="submit" class="action-link-button">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+         <a th:href="@{/}" class="home-link">Back to Converter</a>
+    </div>
+    <style>
+        .action-link-button {
+            background: none;
+            border: none;
+            color: #007bff;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+            font-size: inherit; /* Match link font size */
+            font-family: inherit;
+        }
+        .action-link-button:hover {
+            color: #0056b3;
+        }
+    </style>
+</body>
+</html>

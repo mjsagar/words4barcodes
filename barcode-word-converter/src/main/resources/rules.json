@@ -1,0 +1,58 @@
+[
+  {
+    "name": "default-20char",
+    "rules": [
+      {
+        "order": 0,
+        "length": 4,
+        "type": "NUMERIC",
+        "mapsToWord": true
+      },
+      {
+        "order": 1,
+        "length": 1,
+        "type": "STATIC",
+        "staticValue": "T",
+        "mapsToWord": false
+      },
+      {
+        "order": 2,
+        "length": 4,
+        "type": "NUMERIC",
+        "mapsToWord": true
+      },
+      {
+        "order": 3,
+        "length": 1,
+        "type": "STATIC_OR",
+        "staticOrValues": ["E", "X", "Y"],
+        "mapsToWord": false
+      },
+      {
+        "order": 4,
+        "length": 4,
+        "type": "NUMERIC",
+        "mapsToWord": true
+      },
+      {
+        "order": 5,
+        "length": 2,
+        "type": "BASE64",
+        "mapsToWord": false
+      },
+      {
+        "order": 6,
+        "length": 4,
+        "type": "NUMERIC",
+        "mapsToWord": true
+      },
+      {
+        "order": 7,
+        "length": 1,
+        "type": "STATIC",
+        "staticValue": "T",
+        "mapsToWord": false
+      }
+    ]
+  }
+]

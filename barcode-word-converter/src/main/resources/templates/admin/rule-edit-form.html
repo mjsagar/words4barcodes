@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${isNew} ? 'Create Rule Set' : 'Edit Rule Set'"></title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        h1 { color: #333; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select {
+            width: calc(100% - 22px); /* Account for padding and border */
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group input[type="checkbox"] { margin-right: 5px; vertical-align: middle; }
+        .button, input[type="submit"] { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 16px; }
+        .button:hover, input[type="submit"]:hover { background-color: #0056b3; }
+        .delete-button { background-color: #dc3545; }
+        .delete-button:hover { background-color: #c82333; }
+        .add-rule-button { background-color: #28a745; margin-bottom:10px;}
+        .add-rule-button:hover { background-color: #218838; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+        th { background-color: #f2f2f2; }
+        td input[type="text"], td input[type="number"], td select { width: 95%; box-sizing: border-box; }
+        .message { padding: 10px; margin-bottom: 15px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .nav-links { margin-bottom: 20px; text-align: right; }
+        .nav-links a, .nav-links form { display: inline-block; margin-left: 10px; }
+        .rule-order-display { padding-top: 10px; } /* Align order number with input fields */
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="nav-links">
+        <a th:href="@{/admin/rules}" class="button">Back to Rule Sets</a>
+        <form th:action="@{/logout}" method="post" style="display: inline;">
+            <input type="submit" value="Logout" class="button delete-button"/>
+        </form>
+    </div>
+
+    <h1 th:text="${isNew} ? 'Create New Rule Set' : 'Edit Rule Set: ' + ${ruleSetForm.name}">Edit Rule Set</h1>
+
+    <div th:if="${successMessage}" class="message success" th:text="${successMessage}"></div>
+    <div th:if="${errorMessage}" class="message error" th:text="${errorMessage}"></div>
+
+    <form th:action="@{/admin/rules/save}" th:object="${ruleSetForm}" method="post">
+        <div class="form-group">
+            <label for="name">Rule Set Name:</label>
+            <input type="text" id="name" th:field="*{name}" th:readonly="${!isNew && #strings.equals(ruleSetForm.name, 'default-20char')}" required />
+            <!-- Allow editing name only if it's a new rule or not the default one -->
+             <input type="hidden" th:if="${!isNew && !#strings.equals(ruleSetForm.name, 'default-20char')}" name="originalName" th:value="*{name}" />
+        </div>
+
+        <h2>Segments</h2>
+        <table id="rulesTable">
+            <thead>
+            <tr>
+                <th style="width:5%">Order</th>
+                <th style="width:10%">Length</th>
+                <th style="width:20%">Type</th>
+                <th style="width:40%">Static Value / OR Values (CSV for STATIC_OR)</th>
+                <th style="width:15%">Maps to Word?</th>
+                <th style="width:10%">Action</th>
+            </tr>
+            </thead>
+            <tbody id="rulesContainer">
+            <!--/* Thymeleaf will iterate over ruleSetForm.displayRules */-->
+            <tr th:each="rule, iterStat : *{displayRules}" th:id="'ruleRow' + ${iterStat.index}">
+                <input type="hidden" th:field="*{displayRules[__${iterStat.index}__].order}" class="rule-order-input" />
+                <td class="rule-order-display" th:text="${iterStat.index}">0</td>
+                <td><input type="number" th:field="*{displayRules[__${iterStat.index}__].length}" min="0" placeholder="Length" /></td>
+                <td>
+                    <select th:field="*{displayRules[__${iterStat.index}__].type}" class="segment-type-select" th:attr="data-index=${iterStat.index}">
+                        <option value="">-- Select Type --</option>
+                        <option th:each="typeOpt : ${segmentTypes}" th:value="${typeOpt}" th:text="${typeOpt.name()}"></option>
+                    </select>
+                </td>
+                <td>
+                    <!-- Field for STATIC type -->
+                    <input type="text" th:field="*{displayRules[__${iterStat.index}__].staticValue}"
+                           th:id="'staticValue' + ${iterStat.index}" placeholder="Static Value"
+                           th:style="${rule.type != null && rule.type.name() == 'STATIC'} ? '' : 'display: none;'" />
+
+                    <!-- Field for STATIC_OR type. Spring binds list to first element if only one input. -->
+                    <input type="text" th:field="*{displayRules[__${iterStat.index}__].staticOrValues[0]}"
+                           th:id="'staticOrValues' + ${iterStat.index}" placeholder="Comma-separated values"
+                           th:style="${rule.type != null && rule.type.name() == 'STATIC_OR'} ? '' : 'display: none;'" />
+                </td>
+                <td><input type="checkbox" th:field="*{displayRules[__${iterStat.index}__].mapsToWord}" /></td>
+                <td><button type="button" class="button delete-button" onclick="removeRuleRow(this)">Remove</button></td>
+            </tr>
+            </tbody>
+        </table>
+        <button type="button" id="addRuleButton" class="button add-rule-button">Add Rule Segment</button>
+
+        <div class="form-group" style="margin-top: 20px;">
+            <input type="submit" value="Save Rule Set" class="button" />
+        </div>
+    </form>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const segmentTypesJs = /*[[${segmentTypes}]]*/ []; // Make enum values available to JS
+
+    function updateRuleOrderInputs() {
+        const rows = document.querySelectorAll('#rulesContainer tr');
+        rows.forEach((row, index) => {
+            // Update hidden order input
+            const orderInput = row.querySelector('input[name$=".order"]');
+            if (orderInput) {
+                orderInput.value = index;
+            }
+            // Update displayed order number
+            const orderDisplayCell = row.cells[0];
+            if (orderDisplayCell && orderDisplayCell.classList.contains('rule-order-display')) {
+                orderDisplayCell.textContent = index;
+            }
+        });
+    }
+
+    function toggleValueFields(selectElement, index) {
+        const selectedType = selectElement.value;
+        const staticValueInput = document.getElementById('staticValue' + index);
+        const staticOrValuesInput = document.getElementById('staticOrValues' + index);
+
+        if(staticValueInput) staticValueInput.style.display = 'none';
+        if(staticOrValuesInput) staticOrValuesInput.style.display = 'none';
+
+        if (selectedType === 'STATIC') {
+            if(staticValueInput) staticValueInput.style.display = 'block';
+        } else if (selectedType === 'STATIC_OR') {
+            if(staticOrValuesInput) staticOrValuesInput.style.display = 'block';
+        }
+    }
+
+    function initializeExistingRows() {
+        document.querySelectorAll('.segment-type-select').forEach(select => {
+            const index = select.getAttribute('data-index');
+            toggleValueFields(select, index); // Initial state
+            select.addEventListener('change', function() {
+                toggleValueFields(this, index);
+            });
+        });
+        updateRuleOrderInputs();
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeExistingRows);
+
+    document.getElementById('addRuleButton').addEventListener('click', function() {
+        const tableBody = document.getElementById('rulesContainer');
+        const newIndex = tableBody.rows.length;
+        const newRow = tableBody.insertRow();
+        newRow.id = 'ruleRow' + newIndex;
+
+        let optionsHtml = '<option value="">-- Select Type --</option>';
+        segmentTypesJs.forEach(type => {
+            optionsHtml += `<option value="${type}">${type}</option>`;
+        });
+
+        newRow.innerHTML = `
+            <input type="hidden" name="displayRules[${newIndex}].order" value="${newIndex}" class="rule-order-input" />
+            <td class="rule-order-display">${newIndex}</td>
+            <td><input type="number" name="displayRules[${newIndex}].length" min="0" placeholder="Length" /></td>
+            <td>
+                <select name="displayRules[${newIndex}].type" class="segment-type-select" data-index="${newIndex}">
+                    ${optionsHtml}
+                </select>
+            </td>
+            <td>
+                <input type="text" name="displayRules[${newIndex}].staticValue" id="staticValue${newIndex}" placeholder="Static Value" style="display: none;" />
+                <input type="text" name="displayRules[${newIndex}].staticOrValues[0]" id="staticOrValues${newIndex}" placeholder="Comma-separated values" style="display: none;" />
+            </td>
+            <td><input type="checkbox" name="displayRules[${newIndex}].mapsToWord" value="true" />&nbsp;</td>
+            <td><button type="button" class="button delete-button" onclick="removeRuleRow(this)">Remove</button></td>
+        `;
+
+        const newSelect = newRow.querySelector('.segment-type-select');
+        newSelect.addEventListener('change', function() {
+            toggleValueFields(this, this.getAttribute('data-index'));
+        });
+        toggleValueFields(newSelect, newIndex); // Initialize for the new row
+        updateRuleOrderInputs();
+    });
+
+    function removeRuleRow(button) {
+        const row = button.closest('tr');
+        if (row) {
+            row.parentNode.removeChild(row);
+            updateRuleOrderInputs();
+        }
+    }
+    /*]]>*/
+</script>
+</body>
+</html>
