@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays; // Added missing import
 import java.util.Collections;
 // import java.util.HashMap; // Not directly used by RuleService itself, map is ConcurrentHashMap
 import java.util.List;
@@ -166,15 +167,15 @@ public class RuleService {
             // If RuleSet expects orders to start from 1, adjust here or in RuleSet validation.
             // Current RuleSet.validateRules() implies it starts from whatever the first rule's order is.
             // Let's use 0-indexed for the default. The RuleSet constructor sorts them first.
-            rulesFor20Char.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));  // Word 1
+            rulesFor20Char.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));  // Word 1
             rulesFor20Char.add(new BarcodeSegmentRule(1, 1, SegmentType.STATIC, "T", false));
-            rulesFor20Char.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));  // Word 2
+            rulesFor20Char.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));  // Word 2
             // Example of STATIC_OR
             rulesFor20Char.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC_OR, Arrays.asList("E", "X", "Y"), false));
-            rulesFor20Char.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));  // Word 3
+            rulesFor20Char.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true));  // Word 3
             // Example of BASE64
-            rulesFor20Char.add(new BarcodeSegmentRule(5, 2, SegmentType.BASE64, null, false)); // Length 2 for Base64, e.g., "QQ==" is 4 chars, "QQ" is 2. Let's use "AA" for placeholder.
-            rulesFor20Char.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));  // Word 4
+            rulesFor20Char.add(new BarcodeSegmentRule(5, 2, SegmentType.BASE64, (String) null, false)); // Length 2 for Base64, e.g., "QQ==" is 4 chars, "QQ" is 2. Let's use "AA" for placeholder.
+            rulesFor20Char.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true));  // Word 4
             rulesFor20Char.add(new BarcodeSegmentRule(7, 1, SegmentType.STATIC, "T", false));
             // Total length = 4+1+4+1+4+2+4+1 = 21
 
