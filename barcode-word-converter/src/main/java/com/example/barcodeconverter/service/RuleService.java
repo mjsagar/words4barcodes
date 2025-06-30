@@ -169,14 +169,16 @@ public class RuleService {
             rulesFor20Char.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));  // Word 1
             rulesFor20Char.add(new BarcodeSegmentRule(1, 1, SegmentType.STATIC, "T", false));
             rulesFor20Char.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));  // Word 2
-            rulesFor20Char.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "E", false));
+            // Example of STATIC_OR
+            rulesFor20Char.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC_OR, Arrays.asList("E", "X", "Y"), false));
             rulesFor20Char.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));  // Word 3
-            rulesFor20Char.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "S", false));
+            // Example of BASE64
+            rulesFor20Char.add(new BarcodeSegmentRule(5, 2, SegmentType.BASE64, null, false)); // Length 2 for Base64, e.g., "QQ==" is 4 chars, "QQ" is 2. Let's use "AA" for placeholder.
             rulesFor20Char.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));  // Word 4
-            rulesFor20Char.add(new BarcodeSegmentRule(7, 1, SegmentType.STATIC, "T", false)); // Total length = 20
+            rulesFor20Char.add(new BarcodeSegmentRule(7, 1, SegmentType.STATIC, "T", false));
+            // Total length = 4+1+4+1+4+2+4+1 = 21
 
             // Create a RuleSet object. The constructor will sort rules by order.
-            // Validation will occur when this RuleSet is loaded by loadRuleSets() if this file is used.
             RuleSet defaultRuleSet;
             try {
                  defaultRuleSet = new RuleSet("default-20char", rulesFor20Char);

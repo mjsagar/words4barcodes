@@ -64,9 +64,11 @@ public class ConversionServiceTest {
     }
 
     @Test
-    void wordsToBarcode_success() {
+    void wordsToBarcode_success_withBase64Placeholder() {
         List<String> words = Arrays.asList("apple", "banana", "cherry", "date");
-        // Expected: 0000 (apple) + XX + 0001 (banana) + AAA (base64 placeholder) + 0002 (cherry) + Y + 0003 (date)
+        // Expected: 0000 (apple) + XX + 0001 (banana) + AAA (base64 placeholder length 3) + 0002 (cherry) + Y + 0003 (date)
+        // RuleSet: NUMERIC(4,T) + STATIC(2,"XX") + NUMERIC(4,T) + BASE64(3,F) + NUMERIC(4,T) + STATIC(1,"Y") + NUMERIC(4,T)
+        // Total length: 4+2+4+3+4+1+4 = 22
         String expectedBarcode = "0000XX0001AAA0002Y0003";
 
         String actualBarcode = conversionService.wordsToBarcode(words, mockRuleSet);
@@ -74,8 +76,29 @@ public class ConversionServiceTest {
     }
 
     @Test
-    void barcodeToWords_success() {
-        String barcode = "0000XX0001AAA0002Y0003";
+    void wordsToBarcode_withStaticOr_usesFirstValue() {
+        List<BarcodeSegmentRule> rulesWithStaticOr = new ArrayList<>();
+        rulesWithStaticOr.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // apple
+        rulesWithStaticOr.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB", "CC"), false));
+        rulesWithStaticOr.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // banana
+        rulesWithStaticOr.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, null, false));
+        rulesWithStaticOr.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // cherry
+        rulesWithStaticOr.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "Y", false));
+        rulesWithStaticOr.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // date
+        RuleSet ruleSetWithStaticOr = new RuleSet("staticOr-rules", rulesWithStaticOr);
+        ruleSetWithStaticOr.validateRules();
+
+        List<String> words = Arrays.asList("apple", "banana", "cherry", "date");
+        // Expected: 0000 (apple) + AA (first from STATIC_OR) + 0001 (banana) + AAA (base64) + 0002 (cherry) + Y + 0003 (date)
+        String expectedBarcode = "0000AA0001AAA0002Y0003";
+        String actualBarcode = conversionService.wordsToBarcode(words, ruleSetWithStaticOr);
+        assertEquals(expectedBarcode, actualBarcode);
+    }
+
+
+    @Test
+    void barcodeToWords_success_withBase64Validation() {
+        String barcode = "0000XX0001AAA0002Y0003"; // AAA is a valid Base64 placeholder for length 3
         List<String> expectedWords = Arrays.asList("apple", "banana", "cherry", "date");
 
         List<String> actualWords = conversionService.barcodeToWords(barcode, mockRuleSet);
@@ -118,6 +141,64 @@ public class ConversionServiceTest {
         });
         assertTrue(exception.getMessage().contains("Static segment mismatch"));
     }
+
+    @Test
+    void barcodeToWords_staticOrSegment_success() {
+        List<BarcodeSegmentRule> rules = new ArrayList<>();
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // apple
+        rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB"), false));
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // banana
+        rules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "S", false));
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // cherry
+        rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "T", false));
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // date
+        RuleSet staticOrRuleSet = new RuleSet("staticOr-test", rules);
+        staticOrRuleSet.validateRules(); // Total length 4+2+4+1+4+1+4 = 20
+
+        // Test with "AA"
+        String barcode1 = "0000AA0001S0002T0003";
+        List<String> expectedWords = Arrays.asList("apple", "banana", "cherry", "date");
+        List<String> actualWords1 = conversionService.barcodeToWords(barcode1, staticOrRuleSet);
+        assertEquals(expectedWords, actualWords1);
+
+        // Test with "BB"
+        String barcode2 = "0000BB0001S0002T0003";
+        List<String> actualWords2 = conversionService.barcodeToWords(barcode2, staticOrRuleSet);
+        assertEquals(expectedWords, actualWords2);
+    }
+
+    @Test
+    void barcodeToWords_staticOrSegmentMismatch_throwsException() {
+        List<BarcodeSegmentRule> rules = new ArrayList<>();
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB"), false));
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "S", false));
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "T", false));
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));
+        RuleSet staticOrRuleSet = new RuleSet("staticOr-mismatch", rules);
+        staticOrRuleSet.validateRules();
+
+        String barcodeWithMismatch = "0000CC0001S0002T0003"; // CC is not in {"AA", "BB"}
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            conversionService.barcodeToWords(barcodeWithMismatch, staticOrRuleSet);
+        });
+        assertTrue(exception.getMessage().contains("does not match any of the allowed values"));
+    }
+
+    @Test
+    void barcodeToWords_invalidBase64Segment_throwsException() {
+        // Rule 3 is BASE64, length 3. "A==" is valid Base64 for one byte, but "A=" is not valid for length 3.
+        // A valid base64 string of length 3 could be like "QUF" (encoding "AA")
+        // An invalid one for "AAA" (length 3) would be "A!B"
+        String barcodeWithInvalidBase64 = "0000XX0001A!B0002Y0003";
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            conversionService.barcodeToWords(barcodeWithInvalidBase64, mockRuleSet);
+        });
+        assertTrue(exception.getMessage().contains("contains invalid Base64 characters"));
+    }
+
 
     @Test
     void barcodeToWords_wordIndexOutOfBounds_throwsException() {

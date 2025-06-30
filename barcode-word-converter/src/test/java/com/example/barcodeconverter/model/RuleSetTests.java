@@ -19,8 +19,23 @@ public class RuleSetTests {
         rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));  // Word 3
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "C", false));
         rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));  // Word 4
+        // Total length: 4+1+4+1+4+1+4 = 19
         return rules;
     }
+
+    private List<BarcodeSegmentRule> createValidRuleListWithNewTypes() {
+        List<BarcodeSegmentRule> rules = new ArrayList<>();
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));      // Word 1, len 4
+        rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC, "XY", false));       // Static, len 2
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));      // Word 2, len 4
+        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, null, false));       // Base64, len 3
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));      // Word 3, len 4
+        rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC_OR, Arrays.asList("A", "B"), false)); // Static_OR, len 1
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));      // Word 4, len 4
+        // Total length: 4+2+4+3+4+1+4 = 22
+        return rules;
+    }
+
 
     @Test
     void constructor_validNameAndRules_shouldCreateInstance() {
@@ -61,8 +76,19 @@ public class RuleSetTests {
 
         assertDoesNotThrow(ruleSet::validateRules);
         assertTrue(ruleSet.isValidated());
-        assertEquals(19, ruleSet.getTotalBarcodeLength()); // 4*4 (numeric) + 3*1 (static)
+        assertEquals(19, ruleSet.getTotalBarcodeLength());
     }
+
+    @Test
+    void validateRules_validRulesWithNewTypes_shouldValidateAndSetProperties() {
+        List<BarcodeSegmentRule> rules = createValidRuleListWithNewTypes();
+        RuleSet ruleSet = new RuleSet("testSetNewTypes", rules);
+
+        assertDoesNotThrow(ruleSet::validateRules);
+        assertTrue(ruleSet.isValidated());
+        assertEquals(22, ruleSet.getTotalBarcodeLength());
+    }
+
 
     @Test
     void validateRules_alreadyValidated_shouldNotRevalidate() {
@@ -209,6 +235,31 @@ public class RuleSetTests {
         // Let's rename that test. The error was `java.lang.IllegalArgumentException` from BarcodeSegmentRule.
         // The test name will be changed to reflect it tests BarcodeSegmentRule.
     }
+
+    @Test
+    void validateRules_staticOrCannotMapToWord_shouldThrowIllegalStateException() {
+        List<BarcodeSegmentRule> rules = new ArrayList<>();
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));
+        // This rule is invalid because STATIC_OR cannot map to a word.
+        // BarcodeSegmentRule constructor will throw an error first.
+        // This test confirms RuleSet.validateRules() would also catch it if such a rule object could exist.
+        // However, BarcodeSegmentRule constructor already prevents this.
+        // So, this test is more for BarcodeSegmentRule.
+        assertThrows(IllegalArgumentException.class, () -> {
+            new BarcodeSegmentRule(3, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB"), true);
+        });
+    }
+
+    @Test
+    void validateRules_base64CannotMapToWord_shouldThrowIllegalStateException() {
+        // Similar to STATIC_OR, BarcodeSegmentRule constructor prevents this.
+        assertThrows(IllegalArgumentException.class, () -> {
+            new BarcodeSegmentRule(0, 4, SegmentType.BASE64, null, true);
+        });
+    }
+
 
     @Test
     void validateRules_rulesCorrectlySortedByOrderInConstructor() {

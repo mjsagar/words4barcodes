@@ -125,27 +125,26 @@ public class ConversionService {
                         // Consider throwing an error if no source for this data
                         // throw new IllegalStateException("Numeric segment not mapped to a word and no value provided: " + rule);
                         break;
-                    case BASE64:
-                        // Similar to NUMERIC, needs a source of data to encode.
-                        // Placeholder: fill with Base64 of zeros. This also needs refinement.
-                        // e.g. Base64 encode a string of '0's of appropriate length to fill rule.getLength()
-                        // This is tricky because Base64 encoding changes length.
-                        // For now, let's use a placeholder that fits. 'AAAA...'
-                        if (rule.getLength() > 0) {
-                            // Create a placeholder byte array. The content doesn't matter much for this placeholder.
-                            // The length of the byte array should be such that its Base64 representation fits rule.getLength().
-                            // Base64 encoding: 3 bytes -> 4 chars.
-                            // So, numBytes = ceil(rule.getLength() * 3 / 4.0)
-                            // However, for a generic placeholder, we can just use 'A's.
-                            // This is not a robust solution for actual data.
-                             String placeholderBase64 = "A".repeat(rule.getLength());
-                             barcodeBuilder.append(placeholderBase64);
-
+                    case STATIC_OR:
+                        // For wordsToBarcode, if a STATIC_OR segment is not mapped to a word,
+                        // we need a deterministic way to choose one value. Default to the first.
+                        if (rule.getStaticOrValues() != null && !rule.getStaticOrValues().isEmpty()) {
+                            barcodeBuilder.append(rule.getStaticOrValues().get(0));
+                        } else {
+                            // This case should ideally be caught by BarcodeSegmentRule validation
+                            throw new IllegalStateException("STATIC_OR segment (order " + rule.getOrder() + ") has no values defined.");
                         }
-                        // throw new IllegalStateException("Base64 segment not mapped to a word and no value provided: " + rule);
+                        break;
+                    case BASE64:
+                        // Placeholder for non-word-mapped BASE64 segments.
+                        // A robust implementation would require actual data to encode or a different strategy.
+                        if (rule.getLength() > 0) {
+                             String placeholderBase64 = "A".repeat(rule.getLength()); // Simple placeholder
+                             barcodeBuilder.append(placeholderBase64);
+                        }
                         break;
                     default:
-                        throw new IllegalStateException("Unhandled segment type: " + rule.getType());
+                        throw new IllegalStateException("Unhandled segment type for wordsToBarcode: " + rule.getType() + " at order " + rule.getOrder());
                 }
             }
         }
@@ -216,22 +215,47 @@ public class ConversionService {
                                                                "). Expected '" + rule.getStaticValue() + "' but got '" + segmentValue + "'.");
                         }
                         break;
+                    case STATIC_OR:
+                        List<String> allowedValues = rule.getStaticOrValues();
+                        if (allowedValues == null || allowedValues.isEmpty()) {
+                             throw new IllegalStateException("STATIC_OR segment (order " + rule.getOrder() + ") has no defined allowed values in RuleSet.");
+                        }
+                        boolean matchFound = false;
+                        for (String allowedVal : allowedValues) {
+                            if (segmentValue.equals(allowedVal)) {
+                                matchFound = true;
+                                break;
+                            }
+                        }
+                        if (!matchFound) {
+                            throw new IllegalArgumentException("Segment value '" + segmentValue + "' for STATIC_OR rule (order " + rule.getOrder() +
+                                                               ") does not match any of the allowed values: " + allowedValues);
+                        }
+                        break;
                     case NUMERIC:
+                        // This validation is for non-word-mapped NUMERIC segments.
+                        // Word-mapped NUMERIC segments are handled in the if (rule.isMapsToWord()) block.
                         if (!segmentValue.matches("\\d+")) {
                             throw new IllegalArgumentException("Numeric segment (order " + rule.getOrder() +
                                                                ") contains non-numeric characters: '" + segmentValue + "'.");
                         }
                         break;
                     case BASE64:
-                        // Validate if it's a valid Base64 string of the correct length
-                        // This is a basic check. More robust validation might be needed depending on requirements.
+                        // Validate if it's a valid Base64 string.
+                        // The BarcodeSegmentRule ensures length matches if type is BASE64 and not mapsToWord.
+                        // A more robust validation might check if the length is a valid Base64 encoded length (e.g. multiple of 4, padding).
+                        // For now, just check if it can be decoded.
                         try {
                             Base64.getDecoder().decode(segmentValue);
+                            // Additionally, ensure the decoded data, if re-encoded, would match the original length.
+                            // This is complex as padding characters affect this. For simplicity, we trust rule.getLength().
                         } catch (IllegalArgumentException e) {
                              throw new IllegalArgumentException("Base64 segment (order " + rule.getOrder() +
-                                                               ") contains invalid Base64 characters: '" + segmentValue + "'.");
+                                                               ") contains invalid Base64 characters: '" + segmentValue + "'. Error: " + e.getMessage());
                         }
                         break;
+                    default:
+                        throw new IllegalStateException("Unhandled segment type for barcodeToWords: " + rule.getType() + " at order " + rule.getOrder());
                 }
             }
         }
