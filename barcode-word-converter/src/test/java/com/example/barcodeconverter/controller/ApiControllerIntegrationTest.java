@@ -54,13 +54,13 @@ public class ApiControllerIntegrationTest {
         // or ensure RuleService is set up in a predictable way.
 
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // apple
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true)); // apple
         rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC, "IT", false));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // banana
-        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, null, false)); // Placeholder "AAA"
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // cherry
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true)); // banana
+        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, (String) null, false)); // Placeholder "AAA"
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true)); // cherry
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "Z", false));
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // date
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true)); // date
 
         RuleSet testRuleSet = new RuleSet(DEFAULT_RULE_SET_NAME, rules);
         testRuleSet.validateRules(); // Validate it
@@ -153,15 +153,17 @@ public class ApiControllerIntegrationTest {
         RuleSet defaultRuleSetFromService = ruleService.getRuleSetByName(null); // This should be "default-20char"
         assertNotNull(defaultRuleSetFromService, "RuleService did not provide a default RuleSet.");
         assertEquals("default-20char", defaultRuleSetFromService.getName(), "Default RuleSet name mismatch.");
-        assertEquals(20, defaultRuleSetFromService.getTotalBarcodeLength(), "Default RuleSet total length mismatch.");
+        assertEquals(21, defaultRuleSetFromService.getTotalBarcodeLength(), "Default RuleSet total length mismatch.");
 
 
         ConversionRequest request = new ConversionRequest();
-        // Barcode "0000T0003E0006S0011T" -> words: "that", "from", "more", "search" (index 11 is 'search')
-        request.setBarcode("0000T0003E0006S0011T");
+        // Default RuleSet structure: N4-S1("T")-N4-SOR1("E")-N4-B64(2,"AA")-N4-S1("T") Total=21
+        // Words: "that" (0), "this" (1), "with" (2), "from" (3)
+        // Barcode: 0000 T 0001 E 0002 AA 0003 T
+        request.setBarcode("0000T0001E0002AA0003T");
         // No ruleSetName set in request, so ApiController should ask RuleService for default.
 
-        List<String> expectedWords = Arrays.asList("that", "from", "more", "search");
+        List<String> expectedWords = Arrays.asList("that", "this", "with", "from");
 
         mockMvc.perform(post("/api/convert")
                 .contentType(MediaType.APPLICATION_JSON)

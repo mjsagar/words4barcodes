@@ -10,7 +10,7 @@ public class BarcodeSegmentRuleTests {
 
     @Test
     void constructor_validNumericRule() {
-        BarcodeSegmentRule rule = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true);
+        BarcodeSegmentRule rule = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true);
         assertEquals(0, rule.getOrder());
         assertEquals(4, rule.getLength());
         assertEquals(SegmentType.NUMERIC, rule.getType());
@@ -32,7 +32,7 @@ public class BarcodeSegmentRuleTests {
     @Test
     void constructor_staticRule_nullValue_throwsException() {
         Exception exception = assertThrows(IllegalArgumentException.class, () -> {
-            new BarcodeSegmentRule(1, 3, SegmentType.STATIC, null, false);
+            new BarcodeSegmentRule(1, 3, SegmentType.STATIC, (String) null, false);
         });
         assertTrue(exception.getMessage().contains("Static value cannot be null or empty"));
     }
@@ -55,7 +55,7 @@ public class BarcodeSegmentRuleTests {
 
     @Test
     void constructor_validBase64Rule() {
-        BarcodeSegmentRule rule = new BarcodeSegmentRule(2, 8, SegmentType.BASE64, null, false);
+        BarcodeSegmentRule rule = new BarcodeSegmentRule(2, 8, SegmentType.BASE64, (String) null, false);
         assertEquals(SegmentType.BASE64, rule.getType());
         assertEquals(8, rule.getLength());
         assertFalse(rule.isMapsToWord());
@@ -155,15 +155,15 @@ public class BarcodeSegmentRuleTests {
     @Test
     void constructor_base64Rule_mapsToWord_throwsException() {
         Exception exception = assertThrows(IllegalArgumentException.class, () -> {
-            new BarcodeSegmentRule(2, 8, SegmentType.BASE64, null, true);
+            new BarcodeSegmentRule(2, 8, SegmentType.BASE64, (String) null, true);
         });
         assertTrue(exception.getMessage().contains("Only NUMERIC segments can be mapped to a word"));
     }
 
     @Test
     void equalsAndHashCode_consistentForSameValues() {
-        BarcodeSegmentRule rule1 = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true);
-        BarcodeSegmentRule rule2 = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true);
+        BarcodeSegmentRule rule1 = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true);
+        BarcodeSegmentRule rule2 = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true);
         assertEquals(rule1, rule2);
         assertEquals(rule1.hashCode(), rule2.hashCode());
 
@@ -182,8 +182,8 @@ public class BarcodeSegmentRuleTests {
 
     @Test
     void equals_differentValues_returnsFalse() {
-        BarcodeSegmentRule rule1 = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true);
-        BarcodeSegmentRule rule2 = new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true); // Different order
+        BarcodeSegmentRule rule1 = new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true);
+        BarcodeSegmentRule rule2 = new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, (String) null, true); // Different order
         assertNotEquals(rule1, rule2);
 
         BarcodeSegmentRule rule3 = new BarcodeSegmentRule(1, 3, SegmentType.STATIC, "ABC", false);

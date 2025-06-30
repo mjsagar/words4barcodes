@@ -12,26 +12,26 @@ public class RuleSetTests {
     private List<BarcodeSegmentRule> createValidRuleList(String namePrefix) {
         // Creates a list of 4 rules that map to words, plus some static rules
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));  // Word 1
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));  // Word 1
         rules.add(new BarcodeSegmentRule(1, 1, SegmentType.STATIC, "A", false));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));  // Word 2
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));  // Word 2
         rules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "B", false));
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));  // Word 3
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true));  // Word 3
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "C", false));
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));  // Word 4
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true));  // Word 4
         // Total length: 4+1+4+1+4+1+4 = 19
         return rules;
     }
 
     private List<BarcodeSegmentRule> createValidRuleListWithNewTypes() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));      // Word 1, len 4
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));      // Word 1, len 4
         rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC, "XY", false));       // Static, len 2
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));      // Word 2, len 4
-        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, null, false));       // Base64, len 3
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));      // Word 3, len 4
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));      // Word 2, len 4
+        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, (String) null, false));       // Base64, len 3
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true));      // Word 3, len 4
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC_OR, Arrays.asList("A", "B"), false)); // Static_OR, len 1
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));      // Word 4, len 4
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true));      // Word 4, len 4
         // Total length: 4+2+4+3+4+1+4 = 22
         return rules;
     }
@@ -120,11 +120,11 @@ public class RuleSetTests {
     @Test
     void validateRules_nonSequentialOrderNumbers_shouldThrowIllegalStateException() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));
         rules.add(new BarcodeSegmentRule(2, 1, SegmentType.STATIC, "A", false)); // Gap: missing order 1
-        rules.add(new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(5, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(5, 4, SegmentType.NUMERIC, (String) null, true));
 
 
         RuleSet ruleSet = new RuleSet("testSetNonSequential", rules);
@@ -136,11 +136,11 @@ public class RuleSetTests {
     @Test
     void validateRules_nonSequentialOrderNumbersStartFromNonZero_shouldThrowIllegalStateException() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true)); // Starts at 1
+        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, (String) null, true)); // Starts at 1
         rules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "A", false)); // Gap: missing order 2
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(5, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(5, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true));
 
         RuleSet ruleSet = new RuleSet("testSetNonSequentialStart1", rules);
         IllegalStateException exception = assertThrows(IllegalStateException.class, ruleSet::validateRules);
@@ -208,14 +208,14 @@ public class RuleSetTests {
 
         // Create a custom list for this specific scenario
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));
 
         // Manually create a rule that is mapsToWord but is STATIC (bypassing typical constructor logic if it were more lenient)
         // Since our BarcodeSegmentRule constructor is strict, this test is more about the RuleSet's check.
         // Let's create a valid NUMERIC rule that maps to word first.
-        BarcodeSegmentRule ruleToMakeInvalid = new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, null, true);
+        BarcodeSegmentRule ruleToMakeInvalid = new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, (String) null, true);
         // Now, if we could hypothetically change its type after construction (e.g. if setters existed and allowed this):
         // ReflectionTestUtils.setField(ruleToMakeInvalid, "type", SegmentType.STATIC); // This would make it invalid
         // rules.add(ruleToMakeInvalid);
@@ -239,9 +239,9 @@ public class RuleSetTests {
     @Test
     void validateRules_staticOrCannotMapToWord_shouldThrowIllegalStateException() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));
         // This rule is invalid because STATIC_OR cannot map to a word.
         // BarcodeSegmentRule constructor will throw an error first.
         // This test confirms RuleSet.validateRules() would also catch it if such a rule object could exist.
@@ -256,7 +256,7 @@ public class RuleSetTests {
     void validateRules_base64CannotMapToWord_shouldThrowIllegalStateException() {
         // Similar to STATIC_OR, BarcodeSegmentRule constructor prevents this.
         assertThrows(IllegalArgumentException.class, () -> {
-            new BarcodeSegmentRule(0, 4, SegmentType.BASE64, null, true);
+            new BarcodeSegmentRule(0, 4, SegmentType.BASE64, (String) null, true);
         });
     }
 
@@ -264,11 +264,11 @@ public class RuleSetTests {
     @Test
     void validateRules_rulesCorrectlySortedByOrderInConstructor() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        BarcodeSegmentRule ruleOrder2 = new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true);
+        BarcodeSegmentRule ruleOrder2 = new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true);
         BarcodeSegmentRule ruleOrder0 = new BarcodeSegmentRule(0, 1, SegmentType.STATIC, "A", false);
-        BarcodeSegmentRule ruleOrder1 = new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true);
-        BarcodeSegmentRule ruleOrder3 = new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, null, true);
-        BarcodeSegmentRule ruleOrder4 = new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true);
+        BarcodeSegmentRule ruleOrder1 = new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, (String) null, true);
+        BarcodeSegmentRule ruleOrder3 = new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, (String) null, true);
+        BarcodeSegmentRule ruleOrder4 = new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true);
 
 
         rules.add(ruleOrder2);
@@ -315,12 +315,12 @@ public class RuleSetTests {
     @Test
     void constructor_nullRuleInList_shouldThrowIllegalArgumentException() {
         List<BarcodeSegmentRule> rulesWithNull = new ArrayList<>();
-        rulesWithNull.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
+        rulesWithNull.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));
         rulesWithNull.add(null); // Add a null rule
-        rulesWithNull.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, null, true));
+        rulesWithNull.add(new BarcodeSegmentRule(1, 4, SegmentType.NUMERIC, (String) null, true));
         // Add two more valid rules to satisfy the 4 word-mapped rules requirement if constructor got that far
-        rulesWithNull.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));
-        rulesWithNull.add(new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, null, true));
+        rulesWithNull.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));
+        rulesWithNull.add(new BarcodeSegmentRule(3, 4, SegmentType.NUMERIC, (String) null, true));
 
         // Expecting IllegalArgumentException from the RuleSet constructor due to null rule in list
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
@@ -333,10 +333,10 @@ public class RuleSetTests {
     void validateRules_zeroTotalLength_shouldThrowIllegalStateException() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
         // These rules would sum to 0 length, which is invalid.
-        rules.add(new BarcodeSegmentRule(0, 0, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(1, 0, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(2, 0, SegmentType.NUMERIC, null, true));
-        rules.add(new BarcodeSegmentRule(3, 0, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(0, 0, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(1, 0, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(2, 0, SegmentType.NUMERIC, (String) null, true));
+        rules.add(new BarcodeSegmentRule(3, 0, SegmentType.NUMERIC, (String) null, true));
 
         RuleSet ruleSet = new RuleSet("zeroLengthSet", rules);
         IllegalStateException exception = assertThrows(IllegalStateException.class, ruleSet::validateRules);

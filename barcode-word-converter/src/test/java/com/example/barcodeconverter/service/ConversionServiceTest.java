@@ -49,13 +49,13 @@ public class ConversionServiceTest {
 
         // Setup a default mock RuleSet for tests
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // word 1 (index)
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true)); // word 1 (index)
         rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC, "XX", false));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // word 2 (index)
-        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, null, false)); // placeholder base64
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // word 3 (index)
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true)); // word 2 (index)
+        rules.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, (String) null, false)); // placeholder base64
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true)); // word 3 (index)
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "Y", false));
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // word 4 (index)
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true)); // word 4 (index)
 
         mockRuleSet = new RuleSet("test-rules", rules);
         // Ensure the rule set is validated by calling its validation method.
@@ -78,13 +78,13 @@ public class ConversionServiceTest {
     @Test
     void wordsToBarcode_withStaticOr_usesFirstValue() {
         List<BarcodeSegmentRule> rulesWithStaticOr = new ArrayList<>();
-        rulesWithStaticOr.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // apple
+        rulesWithStaticOr.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true)); // apple
         rulesWithStaticOr.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB", "CC"), false));
-        rulesWithStaticOr.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // banana
-        rulesWithStaticOr.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, null, false));
-        rulesWithStaticOr.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // cherry
+        rulesWithStaticOr.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true)); // banana
+        rulesWithStaticOr.add(new BarcodeSegmentRule(3, 3, SegmentType.BASE64, (String) null, false));
+        rulesWithStaticOr.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true)); // cherry
         rulesWithStaticOr.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "Y", false));
-        rulesWithStaticOr.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // date
+        rulesWithStaticOr.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true)); // date
         RuleSet ruleSetWithStaticOr = new RuleSet("staticOr-rules", rulesWithStaticOr);
         ruleSetWithStaticOr.validateRules();
 
@@ -145,13 +145,13 @@ public class ConversionServiceTest {
     @Test
     void barcodeToWords_staticOrSegment_success() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true)); // apple
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true)); // apple
         rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB"), false));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true)); // banana
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true)); // banana
         rules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "S", false));
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true)); // cherry
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true)); // cherry
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "T", false));
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true)); // date
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true)); // date
         RuleSet staticOrRuleSet = new RuleSet("staticOr-test", rules);
         staticOrRuleSet.validateRules(); // Total length 4+2+4+1+4+1+4 = 20
 
@@ -170,13 +170,13 @@ public class ConversionServiceTest {
     @Test
     void barcodeToWords_staticOrSegmentMismatch_throwsException() {
         List<BarcodeSegmentRule> rules = new ArrayList<>();
-        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(0, 4, SegmentType.NUMERIC, (String) null, true));
         rules.add(new BarcodeSegmentRule(1, 2, SegmentType.STATIC_OR, Arrays.asList("AA", "BB"), false));
-        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(2, 4, SegmentType.NUMERIC, (String) null, true));
         rules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "S", false));
-        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(4, 4, SegmentType.NUMERIC, (String) null, true));
         rules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "T", false));
-        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, null, true));
+        rules.add(new BarcodeSegmentRule(6, 4, SegmentType.NUMERIC, (String) null, true));
         RuleSet staticOrRuleSet = new RuleSet("staticOr-mismatch", rules);
         staticOrRuleSet.validateRules();
 
@@ -220,13 +220,13 @@ public class ConversionServiceTest {
     void wordsToBarcode_wordIndexTooLongForSegment_throwsException() {
         // This test requires a rule that is too short for a valid word index.
         List<BarcodeSegmentRule> shortRules = new ArrayList<>();
-        shortRules.add(new BarcodeSegmentRule(0, 1, SegmentType.NUMERIC, null, true)); // Word 1 (length 1)
+        shortRules.add(new BarcodeSegmentRule(0, 1, SegmentType.NUMERIC, (String) null, true)); // Word 1 (length 1)
         shortRules.add(new BarcodeSegmentRule(1, 1, SegmentType.STATIC, "X", false));
-        shortRules.add(new BarcodeSegmentRule(2, 1, SegmentType.NUMERIC, null, true)); // Word 2 (length 1)
+        shortRules.add(new BarcodeSegmentRule(2, 1, SegmentType.NUMERIC, (String) null, true)); // Word 2 (length 1)
         shortRules.add(new BarcodeSegmentRule(3, 1, SegmentType.STATIC, "Y", false));
-        shortRules.add(new BarcodeSegmentRule(4, 1, SegmentType.NUMERIC, null, true)); // Word 3 (length 1)
+        shortRules.add(new BarcodeSegmentRule(4, 1, SegmentType.NUMERIC, (String) null, true)); // Word 3 (length 1)
         shortRules.add(new BarcodeSegmentRule(5, 1, SegmentType.STATIC, "Z", false));
-        shortRules.add(new BarcodeSegmentRule(6, 1, SegmentType.NUMERIC, null, true)); // Word 4 (length 1)
+        shortRules.add(new BarcodeSegmentRule(6, 1, SegmentType.NUMERIC, (String) null, true)); // Word 4 (length 1)
         RuleSet shortRuleSet = new RuleSet("short-rules", shortRules);
         shortRuleSet.validateRules();
 
