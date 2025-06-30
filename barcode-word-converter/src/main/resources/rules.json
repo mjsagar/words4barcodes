@@ -1,0 +1,79 @@
+[ {
+  "name" : "default-20char",
+  "rules" : [ {
+    "order" : 0,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 1,
+    "length" : 1,
+    "type" : "STATIC",
+    "staticValue" : "T",
+    "mapsToWord" : false
+  }, {
+    "order" : 2,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 3,
+    "length" : 1,
+    "type" : "STATIC",
+    "staticValue" : "E",
+    "mapsToWord" : false
+  }, {
+    "order" : 4,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 5,
+    "length" : 1,
+    "type" : "STATIC",
+    "staticValue" : "S",
+    "mapsToWord" : false
+  }, {
+    "order" : 6,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 7,
+    "length" : 1,
+    "type" : "STATIC",
+    "staticValue" : "T",
+    "mapsToWord" : false
+  } ],
+  "totalBarcodeLength" : 20,
+  "validated" : true,
+  "wordMappingSegments" : [ {
+    "order" : 0,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 2,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 4,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  }, {
+    "order" : 6,
+    "length" : 4,
+    "type" : "NUMERIC",
+    "staticValue" : null,
+    "mapsToWord" : true
+  } ]
+} ]

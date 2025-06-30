@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${ruleSet.name == null || ruleSet.name.isEmpty() ? 'Create Rule Set' : 'Edit Rule Set'}">Edit Rule Set</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        h1 { color: #333; text-align: center; }
+        label { display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select { width: calc(100% - 22px); padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .segment-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .segment-table th, .segment-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        .segment-table th { background-color: #007bff; color: white; font-size: 0.9em; }
+        .segment-table input[type="text"], .segment-table input[type="number"], .segment-table select { width: 95%; padding: 5px; font-size:0.9em; margin-bottom:0; }
+        .segment-table input[type="checkbox"] { margin-top: 5px; }
+        .button-bar { margin-top: 20px; text-align: right; }
+        .button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 10px;}
+        .button:hover { background-color: #0056b3; }
+        .button.cancel { background-color: #6c757d; }
+        .button.cancel:hover { background-color: #545b62; }
+        .message { padding: 10px; margin-bottom: 15px; border-radius: 4px; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .small-note { font-size: 0.8em; color: #777; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 th:text="${ruleSet.name == null || ruleSet.name.isEmpty() ? 'Create New Rule Set' : 'Edit Rule Set: ' + ruleSet.name}">Edit Rule Set</h1>
+
+        <div th:if="${errorMessage}" class="message error" th:text="${errorMessage}"></div>
+
+        <form th:action="@{/admin/rules/save}" th:object="${ruleSet}" method="post">
+            <!-- Hidden field for original name if editing, to handle renaming scenarios if needed, though current save logic uses the new name -->
+            <!-- <input type="hidden" th:if="${!ruleSet.name.isEmpty()}" name="originalName" th:value="${ruleSet.name}" /> -->
+
+            <div>
+                <label for="ruleSetName">Rule Set Name:</label>
+                <input type="text" id="ruleSetName" name="name" th:value="*{name}" required placeholder="e.g., standard-16char" />
+            </div>
+
+            <h2>Segments</h2>
+            <p class="small-note">Define the segments of the barcode in order. Only NUMERIC segments can map to words. Exactly 4 segments must be marked 'Maps to Word'.</p>
+            <table class="segment-table">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Length (chars)</th>
+                        <th>Type</th>
+                        <th>Static Value (if Type is STATIC)</th>
+                        <th>Maps to Word?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Use displayRules which might be padded -->
+                    <tr th:each="rule, iterStat : ${displayRules}">
+                        <td>
+                            <span th:text="${iterStat.index}"></span>
+                            <!-- We don't directly submit order, it's implicit by position or re-assigned server-side -->
+                             <input type="hidden" th:name="|rules[${iterStat.index}].order|" th:value="${iterStat.index}" />
+                        </td>
+                        <td>
+                            <input type="number" th:name="|rules[${iterStat.index}].length|" th:value="${rule.length > 0 ? rule.length : ''}" min="1" placeholder="e.g., 4" />
+                        </td>
+                        <td>
+                            <select th:name="|rules[${iterStat.index}].type|">
+                                <option value="">-- Select Type --</option>
+                                <option th:each="typeOpt : ${segmentTypes}"
+                                        th:value="${typeOpt}"
+                                        th:text="${typeOpt.name()}"
+                                        th:selected="${typeOpt == rule.type}"></option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" th:name="|rules[${iterStat.index}].staticValue|" th:value="${rule.staticValue}" placeholder="e.g., AB2 (if STATIC)" />
+                        </td>
+                        <td>
+                            <input type="checkbox" th:name="|rules[${iterStat.index}].mapsToWord|" value="true" th:checked="${rule.mapsToWord}" />
+                             <!-- Add a hidden field for when checkbox is not checked -->
+                            <input type="hidden" th:name="|rules[${iterStat.index}].mapsToWord|" value="false" th:if="${!rule.mapsToWord}" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="small-note">Empty rows or rows without a Type and Length will be ignored. Ensure Static Value length matches Segment Length if type is STATIC.</p>
+
+            <div class="button-bar">
+                <button type="submit" class="button">Save Rule Set</button>
+                <a th:href="@{/admin/rules}" class="button cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+<script>
+    // Optional: JavaScript to dynamically add/remove segment rows if desired
+    // For now, we provide a fixed number of rows (padded by controller).
+    // Also, ensure that if a checkbox `mapsToWord` is not checked, a `false` value is submitted.
+    // Spring MVC handles this if the field is boolean. For safety with dynamic forms or if issues arise:
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(event) {
+            const checkboxes = form.querySelectorAll('input[type="checkbox"][name^="rules"][name$=".mapsToWord"]');
+            checkboxes.forEach(checkbox => {
+                let hiddenInput = checkbox.nextElementSibling;
+                if (hiddenInput && hiddenInput.type === 'hidden' && hiddenInput.name === checkbox.name) {
+                    // remove existing hidden input if checkbox is checked
+                     if (checkbox.checked) {
+                        if(hiddenInput) hiddenInput.remove();
+                    }
+                } else if (!checkbox.checked) {
+                    // if checkbox is not checked and no hidden input exists, create one
+                    if (!hiddenInput || hiddenInput.name !== checkbox.name) {
+                        const newHidden = document.createElement('input');
+                        newHidden.type = 'hidden';
+                        newHidden.name = checkbox.name;
+                        newHidden.value = 'false';
+                        checkbox.parentNode.insertBefore(newHidden, checkbox.nextSibling);
+                    }
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>

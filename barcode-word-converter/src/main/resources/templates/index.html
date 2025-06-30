@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Barcode/Word Converter</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        h1 { color: #333; text-align: center; }
+        label { display: block; margin-top: 15px; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], select { width: calc(100% - 22px); padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .word-inputs input[type="text"] { width: calc(25% - 12px); margin-right: 10px; }
+        .word-inputs input[type="text"]:last-child { margin-right: 0; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; border: 1px solid #eee; border-radius: 4px; background-color: #e9ecef; white-space: pre-wrap; word-wrap: break-word; }
+        .result.error { border-color: #dc3545; background-color: #f8d7da; color: #721c24; }
+        .result.success { border-color: #28a745; background-color: #d4edda; color: #155724; }
+        .note { font-size: 0.9em; color: #666; margin-bottom: 15px; }
+        .form-section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #ccc; }
+        .form-section:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Barcode &lt;-&gt; Word Converter</h1>
+
+        <label for="ruleSetName">Select Rule Set:</label>
+        <select id="ruleSetName" name="ruleSetName">
+            <option th:each="name : ${ruleSetNames}" th:value="${name}" th:text="${name}" th:selected="${name == defaultRuleSet}"></option>
+            <option th:if="${#lists.isEmpty(ruleSetNames)}" value="">No Rule Sets Available</option>
+        </select>
+
+        <div class="form-section">
+            <h2>Words to Barcode</h2>
+            <p class="note">Enter 4 words to convert to a barcode.</p>
+            <label for="word1">Words (4):</label>
+            <div class="word-inputs">
+                <input type="text" id="word1" placeholder="Word 1">
+                <input type="text" id="word2" placeholder="Word 2">
+                <input type="text" id="word3" placeholder="Word 3">
+                <input type="text" id="word4" placeholder="Word 4">
+            </div>
+            <button onclick="convertToBarcode()">Convert to Barcode</button>
+        </div>
+
+        <div class="form-section">
+            <h2>Barcode to Words</h2>
+            <p class="note">Enter a barcode to convert to 4 words.</p>
+            <label for="barcodeInput">Barcode:</label>
+            <input type="text" id="barcodeInput" placeholder="Enter barcode">
+            <button onclick="convertToWords()">Convert to Words</button>
+        </div>
+
+        <div id="resultArea" class="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        async function convertToBarcode() {
+            const words = [
+                document.getElementById('word1').value.trim(),
+                document.getElementById('word2').value.trim(),
+                document.getElementById('word3').value.trim(),
+                document.getElementById('word4').value.trim()
+            ];
+            const ruleSetName = document.getElementById('ruleSetName').value;
+
+            if (words.some(w => w === '')) {
+                displayResult({ status: 'error', message: 'Please enter all 4 words.' });
+                return;
+            }
+            if (!ruleSetName) {
+                displayResult({ status: 'error', message: 'Please select a Rule Set.' });
+                return;
+            }
+
+            const requestBody = {
+                words: words,
+                ruleSetName: ruleSetName
+            };
+            makeApiCall(requestBody);
+        }
+
+        async function convertToWords() {
+            const barcode = document.getElementById('barcodeInput').value.trim();
+            const ruleSetName = document.getElementById('ruleSetName').value;
+
+            if (barcode === '') {
+                displayResult({ status: 'error', message: 'Please enter a barcode.' });
+                return;
+            }
+             if (!ruleSetName) {
+                displayResult({ status: 'error', message: 'Please select a Rule Set.' });
+                return;
+            }
+
+            const requestBody = {
+                barcode: barcode,
+                ruleSetName: ruleSetName
+            };
+            makeApiCall(requestBody);
+        }
+
+        async function makeApiCall(body) {
+            const resultArea = document.getElementById('resultArea');
+            resultArea.style.display = 'none';
+            resultArea.className = 'result'; // Reset class
+
+            try {
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                displayResult(data);
+
+            } catch (error) {
+                console.error('API call failed:', error);
+                displayResult({ status: 'error', message: 'API call failed: ' + error.message });
+            }
+        }
+
+        function displayResult(data) {
+            const resultArea = document.getElementById('resultArea');
+            let content = `Status: ${data.status}\n`;
+            if (data.message) {
+                content += `Message: ${data.message}\n`;
+            }
+            if (data.barcode) {
+                content += `Barcode: ${data.barcode}\n`;
+            }
+            if (data.words) {
+                content += `Words: ${data.words.join(', ')}\n`;
+            }
+
+            resultArea.textContent = content;
+            resultArea.style.display = 'block';
+
+            if (data.status === 'success') {
+                resultArea.classList.add('success');
+            } else {
+                resultArea.classList.add('error');
+            }
+        }
+    </script>
+</body>
+</html>
